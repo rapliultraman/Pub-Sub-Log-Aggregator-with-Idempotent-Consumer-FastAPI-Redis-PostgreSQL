@@ -1,0 +1,111 @@
+version: "3.9"
+
+# =============================================================================
+# UAS Sistem Terdistribusi - Pub-Sub Log Aggregator
+# =============================================================================
+# Arsitektur:
+#   - aggregator: FastAPI + background workers untuk processing events
+#   - publisher: Generator event dengan duplikasi terkontrol
+#   - broker: Redis sebagai message queue internal
+#   - storage: PostgreSQL untuk persistent storage dengan dedup constraint
+#
+# Jaringan: Internal Compose network (tidak ada akses eksternal publik)
+# Persistensi: Named volumes untuk data safety
+# =============================================================================
+
+services:
+  aggregator:
+    build: ./aggregator
+    image: uas-aggregator:latest
+    container_name: uas-aggregator
+    depends_on:
+      storage:
+        condition: service_healthy
+      broker:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://user:pass@storage:5432/uasdb
+      - REDIS_URL=redis://broker:6379/0
+      - WORKER_COUNT=8
+      - QUEUE_KEY=event_queue
+    ports:
+      - "8080:8080"
+    volumes:
+      - aggregator_data:/var/lib/aggregator
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  publisher:
+    build: ./publisher
+    image: uas-publisher:latest
+    container_name: uas-publisher
+    depends_on:
+      aggregator:
+        condition: service_healthy
+    environment:
+      - TARGET_URL=http://aggregator:8080/publish
+      - TOPIC=demo-topic
+      - RATE_PER_SEC=100
+      - DUP_RATE=0.35
+    networks:
+      - internal
+    restart: unless-stopped
+    profiles:
+      - demo
+
+  broker:
+    image: redis:7-alpine
+    container_name: uas-broker
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - broker_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  storage:
+    image: postgres:16-alpine
+    container_name: uas-storage
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=uasdb
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d uasdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+networks:
+  internal:
+    driver: bridge
+    # Network internal - tidak ada akses ke layanan eksternal publik
+
+volumes:
+  pg_data:
+    name: uas_pg_data
+  broker_data:
+    name: uas_broker_data
+  aggregator_data:
+    name: uas_aggregator_data
+
