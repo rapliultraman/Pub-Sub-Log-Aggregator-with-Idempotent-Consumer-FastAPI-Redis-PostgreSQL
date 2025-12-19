@@ -237,24 +237,10 @@ UAS/
 }
 ```
 
-## Documentation
-
-- [REPORT.md](REPORT.md) - Laporan lengkap (T1-T10) dengan sitasi APA 7th
-- [DEMO_GUIDE.md](DEMO_GUIDE.md) - Panduan demo interaktif
-- [TESTING_DOCKER.md](TESTING_DOCKER.md) - Panduan testing di Docker
-
 ## Video Demo
 
-**Link:** [YouTube - UAS Sistem Terdistribusi Demo](https://youtube.com/watch?v=YOUR_VIDEO_ID)
+**Link:** [YouTube - UAS Sistem Terdistribusi Demo](https://youtu.be/PVnyOfOooy4)
 
-Demo mencakup:
-1. Arsitektur multi-service dan alasan desain
-2. Build image dan `docker compose up`
-3. Pengiriman event duplikat dan bukti idempotency
-4. Demonstrasi transaksi/konkurensi
-5. `/events` dan `/stats` sebelum/sesudah
-6. Crash/recreate container + bukti data persisten
-7. Observability dan logging
 
 ## References
 
